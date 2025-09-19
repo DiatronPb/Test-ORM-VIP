@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test ORM VIP Noah</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- include de Leaflet pour la carte intéractive -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+    crossorigin=""></script>
+
+    <!-- JS -->
+    <script src="script.js" defer></script> <!-- defer pour attendre que le HTML soit chargé -->
+
+
+</head>
+<body>
+    <!-- Titre caché pour les lecteurs d'écran -->
+    <h1 id = "map-title" class = "sr-only ">Carte intéractive</h1>
+
+    <p id = "map-desc" class = "sr-only">Utilisez vos doigts pour vous déplacez, cliquer pour avoir une description</p>
+
+    <div 
+    id = "map"
+    role="application"
+    tabindex="0"
+    aria-labelledby="map-title"
+    aria-describedby="map-desc"
+    aria-live = "polite">
+    </div>
+</body>
+</html>
