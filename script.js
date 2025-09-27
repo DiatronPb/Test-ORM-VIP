@@ -46,7 +46,27 @@ map.on('click', function(e) {
     node["amenity"="college"](around:${radiusCircle},${lat},${lng});
     out body;`;
 
-    const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+    const query2 = `
+    [out:json];
+    (
+    node(around:100,${lat},${lng})[amenity];
+    way(around:100,${lat},${lng})[highway];
+    );
+    out body;
+    >;
+    out skel qt;
+    `
+
+    const query3 = `
+    [out:json];
+    (
+    node(around:100,${lat},${lng})[amenity];
+    );
+    out body;
+    `
+
+
+    const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query3);
 
     console.log(url)
 
