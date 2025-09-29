@@ -15,8 +15,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
-const radiusCircle = 200; // rayon en px
+let radiusCircle = 200 ; // rayon en px
 let currentCircle = null;
+
+let markerli = [];
 
 map.on('click', function(e) {
 
@@ -26,10 +28,14 @@ map.on('click', function(e) {
     const lng = e.latlng.lng;
 
     // Supprimer le cercle précédent s'il existe
+    /*
     if (currentCircle) {
         map.removeLayer(currentCircle);
         currentCircle = null;
     }
+    */
+    markerli.forEach(el => {map.removeLayer(el)});
+
     // Ajouter un cercle à l'endroit cliqué
     currentCircle = L.circleMarker(e.latlng, {
         color: 'blue',
@@ -38,9 +44,19 @@ map.on('click', function(e) {
         radius: radiusCircle
     }).addTo(map);
 
+    markerli.push(currentCircle);
+
+
+    // calcul du rayon en mètre 
+        // converti point géographique en coordonnées pixel
+    let center = map.latLngToLayerPoint(e.latlng);
+    let point = L.point(center.x + radiusCircle, center.y);
+    let pointgeo = map.layerPointToLatLng(point);
+    let radiusCirclem = map.distance(e.latlng, pointgeo);
+
     // lancement de la requête
 
-    
+    /*    
     const query = `
     [out:json][timeout:25];
     node["amenity"="college"](around:${radiusCircle},${lat},${lng});
@@ -64,32 +80,113 @@ map.on('click', function(e) {
     );
     out body;
     `
+    */
 
+    
+    const query4 = `
+    [out:json];
+    (
+    node(around:${radiusCirclem},${lat},${lng});
+    );
+    out body;
+    `
 
-    const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query3);
+    
+    const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query4);
 
     console.log(url)
 
     fetch(url)
-        .then(response => response.json())
+
+        .then(response => {
+            if (response.ok){
+                return response.json()
+            }
+            else{
+                throw new Error(`Erreur HTTP : ${response.status}`)
+            }
+        })
         .then(data => {
-            console.log(data);
+            //console.log(data);
+            let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > 2});
+            //console.log(datafiltered);
             console.log(`J'ai trouvé : ${data.elements.length} élément(s)`);
+
+            console.log(`J'ai trouvé : ${Object.keys(datafiltered).length} élément(s) après filtre`);
+
+            datafiltered.forEach(el => {
+                markerli.push(
+                    L.circleMarker([el.lat, el.lon], {
+                    color: 'red',
+                    fillColor: '#red',
+                    fillOpacity: 0.5,
+                    radius: 5
+                    }).addTo(map)
+                )
+            })
         })
         .catch(error => {
             console.error('Erreur lors de la récupération des données :', error);
         }
     );
+    
 
     
 });
 
 map.on('zoomstart', () => {
+    markerli.forEach(el => {map.removeLayer(el)});
+
+    /*
     if (currentCircle) {
         map.removeLayer(currentCircle);
         currentCircle = null;
     }
+    */
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // source : https://gist.github.com/bizouarn/57ba9f6f0626441870c7d5d6a5773d93
 // source : https://osm-queries.ldodds.com/tutorial/02-node-output.osm.html
