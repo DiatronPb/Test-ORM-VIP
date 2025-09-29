@@ -2,6 +2,7 @@
 const LAT_POLYTECH = 47.364604;
 const LNG_POLYTECH = 0.684748;
 
+
 // Initialisation de la carte centrée sur Paris
 let map = L.map('map', {
     dragging: true, //glisser 
@@ -22,8 +23,8 @@ let markerli = [];
 
 map.on('click', function(e) {
 
-    console.log(e);
-
+    //console.log(e);
+    console.log("------click !!-----")
     const lat = e.latlng.lat;
     const lng = e.latlng.lng;
 
@@ -109,7 +110,7 @@ map.on('click', function(e) {
         .then(data => {
             //console.log(data);
             let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > 2});
-            //console.log(datafiltered);
+            console.log(datafiltered);
             console.log(`J'ai trouvé : ${data.elements.length} élément(s)`);
 
             console.log(`J'ai trouvé : ${Object.keys(datafiltered).length} élément(s) après filtre`);
@@ -122,8 +123,26 @@ map.on('click', function(e) {
                     fillOpacity: 0.5,
                     radius: 5
                     }).addTo(map)
-                )
+                );
+
+                //console.log(el);
+                //arnaque pour API -> utilise IIFE 
+
+                (async () => {
+                    const rep = await generateDesc(datafiltered[0].tags);
+                    console.log(rep);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                })();
+
+
             })
+            //essaie
+            /*
+            generateDesc(datafiltered[0].tags).then(rep => {
+                console.log(rep);
+            })
+                */
+
         })
         .catch(error => {
             console.error('Erreur lors de la récupération des données :', error);
@@ -136,7 +155,7 @@ map.on('click', function(e) {
 
 map.on('zoomstart', () => {
     markerli.forEach(el => {map.removeLayer(el)});
-
+    generateDesc([])
     /*
     if (currentCircle) {
         map.removeLayer(currentCircle);
@@ -146,8 +165,33 @@ map.on('zoomstart', () => {
 });
 
 
+const token_hf = ProcessingInstruction.env.HF_TOKEN;
+//asyn -> pour utiliser await au lieu de .then
+
+async function generateDesc(tags){
 
 
+    const prompt = `Voicie les tags OSM : ${JSON.stringify(tags)} . Résume-les en une phrase très courte, compréhensible par un lecteur d'écran`;
+    const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
+        method: "POST",
+        headers: {
+        "Authorization": `Bearer ${token_hf}`, // OK en local
+        "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: "deepseek-ai/DeepSeek-V3-0324",
+            messages: [
+                { role: "system", content: "Tu es un assistant qui transforme des tags OSM en phrases très courtes pour un lecteur d'écran." },
+                { role: "user", content: prompt }
+            ]
+        })
+    });
+
+  const data = await response.json();
+  //console.log(data);
+  return data.choices[0].message.content;
+
+}
 
 
 
