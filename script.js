@@ -2,7 +2,15 @@
 const LAT_POLYTECH = 47.364604;
 const LNG_POLYTECH = 0.684748;
 
-const token_hf = ProcessingInstruction.env.HF_TOKEN;
+
+const token_hf = null;
+
+try {
+    token_hf = ProcessingInstruction.env.HF_TOKEN;
+} catch (error) {
+    console.log("Erreur dans le chargement du token du llm")
+
+}
 
 
 // Initialisation de la carte centrée sur Paris
@@ -129,12 +137,13 @@ map.on('click', function(e) {
 
                 //console.log(el);
                 //arnaque pour API -> utilise IIFE 
-
-                (async () => {
-                    const rep = await generateDesc(datafiltered[0].tags);
-                    console.log(rep);
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                })();
+                if (token_hf){
+                    (async () => {
+                        const rep = await generateDesc(datafiltered[0].tags);
+                        console.log(rep);
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                    })();
+                }
 
 
             })
