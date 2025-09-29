@@ -2,6 +2,8 @@
 const LAT_POLYTECH = 47.364604;
 const LNG_POLYTECH = 0.684748;
 
+const token_hf = ProcessingInstruction.env.HF_TOKEN;
+
 
 // Initialisation de la carte centrée sur Paris
 let map = L.map('map', {
@@ -165,7 +167,7 @@ map.on('zoomstart', () => {
 });
 
 
-const token_hf = ProcessingInstruction.env.HF_TOKEN;
+// const token_hf = ProcessingInstruction.env.HF_TOKEN;
 //asyn -> pour utiliser await au lieu de .then
 
 async function generateDesc(tags){
