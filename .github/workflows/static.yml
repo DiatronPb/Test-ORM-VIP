@@ -43,4 +43,4 @@ jobs:
         uses: actions/deploy-pages@v4
 
 env:
-  HF_TOKEN: ${{ secret.HF_TOKEN  }}
+  HF_TOKEN: ${{ secrets.HF_TOKEN  }}
