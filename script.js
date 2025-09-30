@@ -5,12 +5,14 @@ const LNG_POLYTECH = 0.684748;
 
 const token_hf = null;
 
+/*
 try {
     token_hf = ProcessingInstruction.env.HF_TOKEN;
 } catch (error) {
     console.log("Erreur dans le chargement du token du llm")
 
 }
+*/
 
 
 // Initialisation de la carte centrée sur Paris
@@ -21,8 +23,9 @@ let map = L.map('map', {
 }).setView([LAT_POLYTECH, LNG_POLYTECH], 17); // Zoom initial
 
 // Tuile OpenStreetMap /!\ à usage policy
+const maxZoom = 20
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
+    maxZoom: maxZoom,
     attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
@@ -46,6 +49,7 @@ map.on('click', function(e) {
     }
     */
     markerli.forEach(el => {map.removeLayer(el)});
+    markerli = [];
 
     // Ajouter un cercle à l'endroit cliqué
     currentCircle = L.circleMarker(e.latlng, {
@@ -119,7 +123,7 @@ map.on('click', function(e) {
         })
         .then(data => {
             //console.log(data);
-            let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > 2});
+            let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > maxZoom - map.getZoom()});
             console.log(datafiltered);
             console.log(`J'ai trouvé : ${data.elements.length} élément(s)`);
 
@@ -129,7 +133,7 @@ map.on('click', function(e) {
                 markerli.push(
                     L.circleMarker([el.lat, el.lon], {
                     color: 'red',
-                    fillColor: '#red',
+                    fillColor: 'red',
                     fillOpacity: 0.5,
                     radius: 5
                     }).addTo(map)
@@ -137,6 +141,7 @@ map.on('click', function(e) {
 
                 //console.log(el);
                 //arnaque pour API -> utilise IIFE 
+                /*
                 if (token_hf){
                     (async () => {
                         const rep = await generateDesc(datafiltered[0].tags);
@@ -144,15 +149,48 @@ map.on('click', function(e) {
                         await new Promise(resolve => setTimeout(resolve, 1500));
                     })();
                 }
-
-
-            })
-            //essaie
-            /*
-            generateDesc(datafiltered[0].tags).then(rep => {
-                console.log(rep);
-            })
                 */
+
+
+            })
+            
+            if (token_hf){
+                // trier ce qu'on envoie
+
+                generateDesc(datafiltered).then(rep => {
+                    const cleaned = rep.replace(/```json|```/g,'').trim();
+                    const parsed = JSON.parse(cleaned)
+                    console.log(parsed);
+
+                    
+                });
+            }
+
+            console.log(markerli);
+
+            // à adapter avec le json récupérer quand j'aurai trouvé une solution pour le llm
+            (async () => {
+                let cpt = 0;
+                while (cpt < datafiltered.length){
+                    const nodedesc = Object.entries(datafiltered[cpt].tags).map(([key, value]) => `${key} : ${value}`).join("<br>");
+                    //console.log(nodedesc);
+                    let marker = markerli[cpt+1];
+                    marker.bindPopup(nodedesc);
+                    marker.openPopup();
+
+                    document.getElementById("nvda-reader").innerHTML = nodedesc;
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    marker.closePopup();
+                    marker.setStyle({
+                        color : "green",
+                        fillColor : "green"
+                    });
+                    cpt ++;
+                }
+            })();
+
+            
 
         })
         .catch(error => {
@@ -166,7 +204,7 @@ map.on('click', function(e) {
 
 map.on('zoomstart', () => {
     markerli.forEach(el => {map.removeLayer(el)});
-    generateDesc([])
+ 
     /*
     if (currentCircle) {
         map.removeLayer(currentCircle);
@@ -179,10 +217,17 @@ map.on('zoomstart', () => {
 // const token_hf = ProcessingInstruction.env.HF_TOKEN;
 //asyn -> pour utiliser await au lieu de .then
 
-async function generateDesc(tags){
+async function generateDesc(dat){
 
 
-    const prompt = `Voicie les tags OSM : ${JSON.stringify(tags)} . Résume-les en une phrase très courte, compréhensible par un lecteur d'écran`;
+    const prompt = `Voicie les tags OSM : ${JSON.stringify(dat)} sous la forme d'un JSON avec en clé leur id, qui ont tous leurs propres tags. Renvoie uniquement un objet JSON, sans texte autour, sans balise Markdown, sous la forme clé = id dans le tableau (0, 1, ...), valeur = une phrase très courte, 
+    compréhensible par un lecteur d'écran des tags du point d'intérêt
+    Ne mets rien d'autre que le JSON dans ta réponse seulement le format
+    {
+        "0" : "phrase courte",
+        ...
+    }`
+    ;
     const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -190,7 +235,8 @@ async function generateDesc(tags){
         "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "deepseek-ai/DeepSeek-V3-0324",
+            // deepseek-ai/DeepSeek-V3-0324
+            model: "HuggingFaceTB/SmolLM3-3B:hf-inference",
             messages: [
                 { role: "system", content: "Tu es un assistant qui transforme des tags OSM en phrases très courtes pour un lecteur d'écran." },
                 { role: "user", content: prompt }
