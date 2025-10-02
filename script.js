@@ -164,7 +164,7 @@ out center;
             }
         })
         .then(async data => {
-            console.log(data);
+            //console.log(data);
             let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > maxZoom - map.getZoom()});
             //console.log(datafiltered);
             console.log(`J'ai trouvé : ${data.elements.length} élément(s)`);
@@ -195,28 +195,25 @@ out center;
 
 
             })
-            console.log(datafiltered);
+            //console.log(datafiltered);
+            let parse = null;
             if (reqllm){
                 try{
                     console.log("appel llm");
-                    const datasimple = datafiltered.map(el => {return Object.entries(el.tags).map(([k, v]) => {`${k} : ${v}`})});
-
+                    //console.log(datafiltered);
+                    const datasimple = datafiltered.map(el => Object.entries(el.tags).map(([k, v]) => `${k} : ${v}`));
+                    //console.log(datasimple[0]);
+                    
+                    
                     const rep = await generateDesc(datasimple);
                     const cleaned = rep.replace(/```json|```/g, '').trim();
-                    const parsed = JSON.parse(cleaned);
+                    parsed = JSON.parse(cleaned);
                     console.log(parsed);
+                    
+                    
                 }catch(err){
                     console.log("Erreur LLM :", err);
                 }
-                
-                // trier ce qu'on envoie
-                /*
-                generateDesc(datafiltered).then(rep => {
-                    const cleaned = rep.replace(/```json|```/g,'').trim();
-                    const parsed = JSON.parse(cleaned)
-                    console.log(parsed);
-                });
-                */
 
 
             }
@@ -234,7 +231,11 @@ out center;
                     const nodedesc = Object.entries(datafiltered[cpt].tags).map(([key, value]) => `${key} : ${value}`).join("<br>");
                     //console.log(nodedesc);
                     let marker = markerli[cpt+1];
-                    marker.bindPopup(nodedesc);
+                    try {
+                        marker.bindPopup(parsed[cpt]);
+                    } catch (error) {
+                        marker.bindPopup(nodedesc);
+                    }
                     marker.openPopup();
 
                     document.getElementById("nvda-reader").innerHTML = nodedesc;
@@ -274,7 +275,41 @@ map.on('zoomstart', () => {
 
 async function generateDesc(dat){
 
+    
+    const prompt = JSON.stringify(dat);
 
+    console.log(prompt);
+
+    try {
+        const response = await fetch("http://127.0.0.1:11434/api/generate", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            model: "ormte:latest",
+            prompt: prompt, 
+            stream : false,
+            })
+        });
+
+        console.log("Requête envoyée, réponse reçue");
+
+        const data = await response.json();
+        console.log(data);
+        return data.response;
+        } 
+    catch (err) {
+            console.log("Erreur dans generatedesc :", err);
+            return "erreur llm";
+    }
+}
+
+/*
+
+async function generateDesc(dat){
+
+    
     const prompt = `Voicie les tags OSM : ${JSON.stringify(dat)} sous la forme d'un JSON avec en clé leur id, qui ont tous leurs propres tags. Renvoie uniquement un objet JSON, sans texte autour, sans balise Markdown, sous la forme clé = id dans le tableau (0, 1, ...), valeur = une phrase très courte, 
     compréhensible par un lecteur d'écran des tags du point d'intérêt
     Ne mets rien d'autre que le JSON dans ta réponse seulement le format
@@ -283,14 +318,17 @@ async function generateDesc(dat){
         ...
     }`
     ;
+
+    console.log(prompt);
+
     try {
-        const response = await fetch("http://127.0.0.1:3000/chat", {
+        const response = await fetch("http://127.0.0.1:11434/api/chat", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            model: "mistral-7b-instruct-v0.1.Q4_0.gguf",
+            model: "phi3:mini",
             messages: [
                 { 
                     role: "system",
@@ -300,7 +338,9 @@ async function generateDesc(dat){
                     role: "user", 
                     content: prompt 
                 }
-                ]
+                ],
+            stream : false,
+            format: "json"
             })
         });
 
@@ -308,14 +348,15 @@ async function generateDesc(dat){
 
         const data = await response.json();
         console.log(data);
-        return data.choices[0].message.content; 
+        return data.message.content;
+        //return data.choices[0].message.content; 
         } 
     catch (err) {
             console.log("Erreur dans generatedesc :", err);
             return "erreur llm";
     }
 }
-
+    */
 
 /*
     const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
