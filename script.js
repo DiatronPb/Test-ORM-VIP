@@ -12,7 +12,7 @@ let map = L.map('map', {
     dragging: true, //glisser 
     touchZoom: true, //zoom tactile
     doubleClickZoom: false, //zoom double clic
-}).setView([LAT_POLYTECH, LNG_POLYTECH], 17); // Zoom initial
+}).setView([LAT_POLYTECH, LNG_POLYTECH], 12); // Zoom initial
 
 // Tuile OpenStreetMap /!\ à usage policy
 const maxZoom = 20
@@ -30,7 +30,6 @@ let currentLoopId = 0; // éviter 2 boucles concurentes
 
 map.on('click', async function(e) {
 
-    const startTime = Date.now();
 
     //console.log(e);
     console.log("------click !!-----")
@@ -96,6 +95,8 @@ map.on('click', async function(e) {
     `
     */
 
+    const startTime = Date.now(); // calcul du temps de réponse de overpass
+
     const zommte = map.getZoom();
     let queryt = "";
     if (zommte > 13){
@@ -108,6 +109,7 @@ map.on('click', async function(e) {
         `;
     }
     else if (zommte > 10){
+        /*
         queryt = `
         [out:json];
         (
@@ -117,21 +119,49 @@ map.on('click', async function(e) {
         );
         out body;
         `;
+        */
+        queryt = `
+        [out:json];
+        (
+        node["place"](around:${radiusCirclem},${lat},${lng});  
+        );
+        out body;
+        `;
 
     }
     else if (zommte > 7){
         queryt = `
         [out:json];
+        (
+        node["place"="city"](around:${radiusCirclem},${lat},${lng}); 
+        node["place"="town"](around:${radiusCirclem},${lat},${lng}); 
+        );
+        out body;
+        `;
+
+        /*
+        queryt = `
+        [out:json];
         node["place"="city"](around:${radiusCirclem},${lat},${lng}); 
         out body;
         `;
+        */
     }
     else{
+        
         queryt = `
         [out:json];
         relation["admin_level"="2"]["boundary"="administrative"];
         out body;
         `;
+
+        /*
+        queryt = `
+       [out:json][bbox];
+        relation["admin_level"="2"]["boundary"="administrative"];
+        out body;
+        `;
+        */
     }
 
 /*
@@ -165,12 +195,23 @@ out center;
         })
         .then(async data => {
             //console.log(data);
-            let datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > maxZoom - map.getZoom()});
+            let datafiltered = null;
+            if (map.getZoom() < 14){
+                datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > 0});
+            }
+            else{
+                datafiltered = data.elements.filter(el => {return el.tags && Object.keys(el.tags).length > maxZoom - map.getZoom()});
+            }
             //console.log(datafiltered);
+            const endtime = Date.now();
+            console.log(`Temps écoulé requête Overpass : ${((endtime - startTime) / 1000).toFixed(2)} s`);
+
+
             console.log(`J'ai trouvé : ${data.elements.length} élément(s)`);
 
             console.log(`J'ai trouvé : ${Object.keys(datafiltered).length} élément(s) après filtre`);
 
+            
             datafiltered.forEach(el => {
                 markerli.push(
                     L.circleMarker([el.lat, el.lon], {
@@ -180,23 +221,11 @@ out center;
                     radius: 5
                     }).addTo(map)
                 );
-
-                //console.log(el);
-                //arnaque pour API -> utilise IIFE 
-                /*
-                if (token_hf){
-                    (async () => {
-                        const rep = await generateDesc(datafiltered[0].tags);
-                        console.log(rep);
-                        await new Promise(resolve => setTimeout(resolve, 1500));
-                    })();
-                }
-                */
-
-
             })
+            
+            
             //console.log(datafiltered);
-            let parse = null;
+            let parsed = null;
             if (reqllm){
                 try{
                     console.log("appel llm");
@@ -208,7 +237,7 @@ out center;
                     const rep = await generateDesc(datasimple);
                     const cleaned = rep.replace(/```json|```/g, '').trim();
                     parsed = JSON.parse(cleaned);
-                    console.log(parsed);
+                    //console.log(parsed);
                     
                     
                 }catch(err){
@@ -219,9 +248,6 @@ out center;
             }
 
             //console.log(markerli);
-            const endtime = Date.now();
-            console.log(`Temps écoulé : ${((endtime - startTime) / 1000).toFixed(2)} s`);
-
             // à adapter avec le json récupérer quand j'aurai trouvé une solution pour le llm
             if (zommte > 7){
                 let cpt = 0;
@@ -278,7 +304,7 @@ async function generateDesc(dat){
     
     const prompt = JSON.stringify(dat);
 
-    console.log(prompt);
+    //console.log(prompt);
 
     try {
         const response = await fetch("http://127.0.0.1:11434/api/generate", {
